@@ -223,6 +223,9 @@ class OAuthSimple {
         $method = strtoupper($method);
         switch($method)
         {
+        	case 'RSA-SHA1':
+                $this->_parameters['oauth_signature_method']=$method;
+                break;
             case 'PLAINTEXT':
             case 'HMAC-SHA1':
                 $this->_parameters['oauth_signature_method']=$method;
@@ -402,6 +405,24 @@ class OAuthSimple {
             $secretKey .= $this->_oauthEscape($this->_secrets['oauth_secret']);
         switch($this->_parameters['oauth_signature_method'])
         {
+        	case 'RSA-SHA1':
+        	
+        		// Fetch the private key cert based on the request
+                $cert = $this->fetchPrivateCert($request);
+                
+                // Pull the private key ID from the certificate
+                $privatekeyid = opensslGetPrivatekey($cert);
+                
+                // Sign using the key
+                $ok = openssl_sign($baseString, $signature, $privatekeyid);
+                
+                // Release the key resource
+                openssl_free_key($privatekeyid);
+                
+                $this->sbs = $this->_oauthEscape($this->_action).'&'.$this->_oauthEscape($this->_path).'&'.$this->_oauthEscape($this->_normalizedParameters());
+                //error_log('SBS: '.$sigString);
+                return base64_encode(hash_hmac('sha1',$this->sbs,$secretKey,true));
+                
             case 'PLAINTEXT':
                 return urlencode($secretKey);
 

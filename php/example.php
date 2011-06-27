@@ -1,6 +1,6 @@
 <?php
 ///////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// Google API OAuth Authorization using the OAuthSimple library
+// Xero API OAuth Authorization using the OAuthSimple library
 //
 // Author: Guido Schlabitz
 // Email: guido.schlabitz@gmail.com
@@ -13,7 +13,8 @@
 // http://code.google.com/apis/accounts/docs/OAuth_ref.html
 //
 //////////////////////////////////////////////////////////////////////
-require 'oauth.php';
+require 'OAuthSimple.php';
+require 'XeroOAuth.php';
 $oauthObject = new OAuthSimple();
 
 // As this is an example, I am not doing any error checking to keep 
@@ -22,9 +23,32 @@ $oauthObject = new OAuthSimple();
 $output = 'Authorizing...';
 
 // Fill in your API key/consumer key you received when you registered your 
-// application with Google.
-$signatures = array( 'consumer_key'     => 'example.com',
-                     'shared_secret'    => 'example_secret');
+// application with Xero.
+$signatures = array( 'consumer_key'     => 'JEZHWTIOPQQET8GIP1MQKXYU0F5UVX',
+                     'shared_secret'    => '2NDQEQXLWR0DBJBOSSK53M0SB1V6US');
+# Define which app type you are using: 
+# Private - private app method
+# Public - standard public app method
+# Partner - partner app method
+# Partner_Mac - dev flavour of partner to get around Mac OS X issues with openssl (not for production)                
+define("XRO_APP_TYPE",     "Partner_Mac");
+
+                     
+switch (XRO_APP_TYPE) {
+    case "Private":
+        $xro_settings = $xro_defaults;
+        break;
+    case "Public":
+        $xro_settings = $xro_defaults;
+        break;
+    case "Partner":
+        $xro_settings = $xro_partner_defaults;
+        break;
+    case "Partner_Mac":
+        $xro_settings = $xro_partner_mac_defaults;
+        break;
+}
+          
 
 // In step 3, a verifier will be submitted.  If it's not there, we must be
 // just starting out. Let's do step 1 then.
@@ -39,10 +63,11 @@ if (!isset($_GET['oauth_verifier'])) {
     // authorization on their side is finished.
     //
     $result = $oauthObject->sign(array(
-        'path'      =>'https://www.google.com/accounts/OAuthGetRequestToken',
+        'path'      => $xro_settings['site'].$xro_consumer_options['request_token_path'],
         'parameters'=> array(
-            'scope'         => 'http://www.google.com/calendar/feeds/',
-            'oauth_callback'=> 'http://bitbutton.com/oauthsimple/example.php'),
+            'scope'         => $xro_settings['xero_url'],
+            'oauth_callback'=> 'http://localhost/oauthsimple/php/example.php',
+            'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
     // The above object generates a simple URL that includes a signature, the 
@@ -50,10 +75,32 @@ if (!isset($_GET['oauth_verifier'])) {
     // "load" that web page into a string variable.
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    //WARNING: this would prevent curl from detecting a 'man in the middle' attack
+	//curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
+	// Partner app settings
+	curl_setopt ($ch, CURLOPT_SSLKEYPASSWD,  '1234'); 
+	curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
+	curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
+	
+	 
+    if(isset($_GET['debug'])){
+    echo 'CURLOPT_SSLKEY: ' . BASE_PATH . '/certs/entrust-private.pem' . '<br/>';
+    echo 'CURLOPT_SSLCERT: ' . CURLOPT_SSLCERT . '<br/>';
+    echo 'signed_url: ' . $result['signed_url'] . '<br/>';
+    }
+    
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
     $r = curl_exec($ch);
+    if(isset($_GET['debug'])){
+    echo 'CURL ERROR: ' . curl_error($ch) . '<br/>';
+    }
+
     curl_close($ch);
 
+	if(isset($_GET['debug'])){
+    echo 'CURL RESULT: ' . print_r($r) . '<br/>';
+    }
     // We parse the string for the request token and the matching token
     // secret. Again, I'm not handling any errors and just plough ahead 
     // assuming everything is hunky dory.
@@ -61,6 +108,10 @@ if (!isset($_GET['oauth_verifier'])) {
     $request_token = $returned_items['oauth_token'];
     $request_token_secret = $returned_items['oauth_token_secret'];
 
+	 if(isset($_GET['debug'])){
+    echo 'request_token: ' . $request_token . '<br/>';
+    }
+    
     // We will need the request token and secret after the authorization.
     // Google will forward the request token, but not the secret.
     // Set a cookie, so the secret will be available once we return to this page.
@@ -75,13 +126,18 @@ if (!isset($_GET['oauth_verifier'])) {
     // so the user can authorize our access request.  The user could also deny
     // the request, so don't forget to add something to handle that case.
     $result = $oauthObject->sign(array(
-        'path'      =>'https://www.google.com/accounts/OAuthAuthorizeToken',
+        'path'      => $xro_settings['authorize_url'],
         'parameters'=> array(
-            'oauth_token' => $request_token),
+            'oauth_token' => $request_token,
+            'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
     // See you in a sec in step 3.
+    if(isset($_GET['debug'])){
+    echo 'signed_url: ' . $result[signed_url];
+    }else{
     header("Location:$result[signed_url]");
+    }
     exit;
     //////////////////////////////////////////////////////////////////////
 }
@@ -103,15 +159,17 @@ else {
     
     // Build the request-URL...
     $result = $oauthObject->sign(array(
-        'path'      => 'https://www.google.com/accounts/OAuthGetAccessToken',
+        'path'      => $xro_settings['site'].$xro_consumer_options['access_token_path'],
         'parameters'=> array(
             'oauth_verifier' => $_GET['oauth_verifier'],
-            'oauth_token'    => $_GET['oauth_token']),
+            'oauth_token'    => $_GET['oauth_token'],
+            'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
     // ... and grab the resulting string again. 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
     $r = curl_exec($ch);
 
@@ -133,8 +191,8 @@ else {
     // This will build a link to an RSS feed of the users calendars.
     $oauthObject->reset();
     $result = $oauthObject->sign(array(
-        'path'      =>'http://www.google.com/calendar/feeds/default/allcalendars/full',
-        'parameters'=> array('orderby' => 'starttime'),
+        'path'      =>'https://api.xero.com/api.xro/2.0/Accounts',
+        //'parameters'=> array('Where' => 'Type%3d%3d%22BANK%22'),
         'signatures'=> $signatures));
 
     // Instead of going to the list, I will just print the link along with the 
