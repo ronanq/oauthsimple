@@ -24,21 +24,34 @@ $output = 'Authorizing...';
 
 // Fill in your API key/consumer key you received when you registered your 
 // application with Xero.
-$signatures = array( 'consumer_key'     => 'JEZHWTIOPQQET8GIP1MQKXYU0F5UVX',
-                     'shared_secret'    => '2NDQEQXLWR0DBJBOSSK53M0SB1V6US');
+/*$signatures = array( 'consumer_key'     => 'UK55RMPFGBKDME73PDNH5WM5CTLNDW',
+                     'shared_secret'    => 'I6IDSTKK3XHUJKUPEAR4S9VNLO4754',
+                     'rsa_private_key'	=> BASE_PATH . '/certs/privatekey.pem',
+                     'rsa_public_key'	=> BASE_PATH . '/certs/publickey.cer');*/
 # Define which app type you are using: 
 # Private - private app method
 # Public - standard public app method
 # Partner - partner app method
 # Partner_Mac - dev flavour of partner to get around Mac OS X issues with openssl (not for production)                
-define("XRO_APP_TYPE",     "Partner_Mac");
+define("XRO_APP_TYPE",     "Public");
 
                      
 switch (XRO_APP_TYPE) {
     case "Private":
-        $xro_settings = $xro_defaults;
+    	$signatures = array( 'consumer_key'     => 'H3REUBTQFUJCSAMLJ1GWZN84RWOMB1',
+              	      	 'shared_secret'    => 'BYACL6JG1XM0IPC3VOBZZWTYVG2RSN',
+                	     'rsa_private_key'	=> BASE_PATH . '/certs/php-test-private-rq-privatekey.pem',
+                     	 'rsa_public_key'	=> BASE_PATH . '/certs/php-test-private-rq-publickey.cer');
+        $xro_settings = $xro_private_defaults;
+        $_GET['oauth_verifier'] = 1;
+       	$_COOKIE['oauth_token_secret'] =  $signatures['shared_secret'];
+       	$_GET['oauth_token'] =  $signatures['consumer_key'];
         break;
     case "Public":
+    $signatures = array( 'consumer_key'     => 'UK55RMPFGBKDME73PDNH5WM5CTLNDW',
+                     'shared_secret'    => 'I6IDSTKK3XHUJKUPEAR4S9VNLO4754',
+                     'rsa_private_key'	=> BASE_PATH . '/certs/php-test-private-rq-privatekey.pem',
+                     'rsa_public_key'	=> BASE_PATH . '/certs/php-test-private-rq-publickey.cer');
         $xro_settings = $xro_defaults;
         break;
     case "Partner":
@@ -66,7 +79,7 @@ if (!isset($_GET['oauth_verifier'])) {
         'path'      => $xro_settings['site'].$xro_consumer_options['request_token_path'],
         'parameters'=> array(
             'scope'         => $xro_settings['xero_url'],
-            'oauth_callback'=> 'http://localhost/oauthsimple/php/example.php',
+            'oauth_callback'=> 'http://localhost/oauthsimple_rq/php/example.php',
             'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
@@ -74,18 +87,45 @@ if (!isset($_GET['oauth_verifier'])) {
     // needed parameters, and the web page that will handle our request.  I now
     // "load" that web page into a string variable.
     $ch = curl_init();
+    curl_setopt($ch, CURLOPT_VERBOSE, '1');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     //WARNING: this would prevent curl from detecting a 'man in the middle' attack
-	//curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
-	// Partner app settings
-	curl_setopt ($ch, CURLOPT_SSLKEYPASSWD,  '1234'); 
-	curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
-	curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
+	
+	switch (XRO_APP_TYPE) {
+    case "Private":
+       
+        break;
+    case "Public":
+       
+        break;
+    case "Partner":
+       
+        break;
+    case "Partner_Mac":
+        	//curl_setopt($ch, CURLOPT_CAINFO,  BASE_PATH .'/certs/ca.crt');
+			curl_setopt($ch, CURLOPT_FAILONERROR, 1); 
+			// Partner app settings
+			//curl_setopt($ch, CURLOPT_SSLKEYTYPE, 'PEM'); 
+			//curl_setopt($ch, CURLOPT_SSLCERTPASSWD, '1234'); 
+			curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/EnTrust-D4-Public.pem'); 
+			//curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
+			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/EnTrust-D4-PrivateNoPass.pem'); 
+        break;
+}
+
+	
 	
 	 
     if(isset($_GET['debug'])){
-    echo 'CURLOPT_SSLKEY: ' . BASE_PATH . '/certs/entrust-private.pem' . '<br/>';
+    //echo BASE_PATH . '/certs/entrust-private.pem' . '<br/>';
+    	$fp = fopen(BASE_PATH . '/certs/clientCert-rq.pem',"r");
+       	
+		$file_contents = fread($fp,8192);
+		//echo "<br/>" . $file_contents . '<br/>';
+		fclose($fp);
+    echo 'CURLOPT_SSLKEY: ' . CURLOPT_SSLKEY . '<br/>';
     echo 'CURLOPT_SSLCERT: ' . CURLOPT_SSLCERT . '<br/>';
     echo 'signed_url: ' . $result['signed_url'] . '<br/>';
     }
@@ -157,26 +197,32 @@ else {
     $signatures['oauth_secret'] = $_COOKIE['oauth_token_secret'];
     $signatures['oauth_token'] = $_GET['oauth_token'];
     
-    // Build the request-URL...
-    $result = $oauthObject->sign(array(
-        'path'      => $xro_settings['site'].$xro_consumer_options['access_token_path'],
-        'parameters'=> array(
-            'oauth_verifier' => $_GET['oauth_verifier'],
-            'oauth_token'    => $_GET['oauth_token'],
-            'oauth_signature_method' => $xro_settings['signature_method']),
-        'signatures'=> $signatures));
+    // only need to do this for non-private apps
+    if(XRO_APP_TYPE!='Private'){
+	// Build the request-URL...
+	$result = $oauthObject->sign(array(
+		'path'		=> $xro_settings['site'].$xro_consumer_options['access_token_path'],
+		'parameters'=> array(
+			'oauth_verifier' => $_GET['oauth_verifier'],
+			'oauth_token'	 => $_GET['oauth_token'],
+			'oauth_signature_method' => $xro_settings['signature_method']),
+		'signatures'=> $signatures));
 
-    // ... and grab the resulting string again. 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
-    curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
-    $r = curl_exec($ch);
+	// ... and grab the resulting string again. 
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
+	curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
+	$r = curl_exec($ch);
 
-    // Voila, we've got a long-term access token.
-    parse_str($r, $returned_items);        
-    $access_token = $returned_items['oauth_token'];
-    $access_token_secret = $returned_items['oauth_token_secret'];
+	// Voila, we've got a long-term access token.
+	parse_str($r, $returned_items);		   
+	$access_token = $returned_items['oauth_token'];
+	$access_token_secret = $returned_items['oauth_token_secret'];
+    }else{
+    $access_token = $signatures['oauth_token'];
+	$access_token_secret = $signatures['oauth_secret'];
+    }
     
     // We can use this long-term access token to request Google API data,
     // for example, a list of calendars. 
@@ -187,22 +233,27 @@ else {
     $signatures['oauth_secret'] = $access_token_secret;
     //////////////////////////////////////////////////////////////////////
     
-    // Example Google API Access:
+    // Example Xero API Access:
     // This will build a link to an RSS feed of the users calendars.
     $oauthObject->reset();
     $result = $oauthObject->sign(array(
         'path'      =>'https://api.xero.com/api.xro/2.0/Accounts',
         //'parameters'=> array('Where' => 'Type%3d%3d%22BANK%22'),
+        'parameters'=> array(
+			'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
     // Instead of going to the list, I will just print the link along with the 
     // access token and secret, so we can play with it in the sandbox:
     // http://googlecodesamples.com/oauth_playground/
     //
+    $ch = curl_init();
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
     $output = "<p>Access Token: $access_token<BR>
                   Token Secret: $access_token_secret</p>
-               <p><a href='$result[signed_url]'>List of Calendars</a></p>";
+               <p><a href='$result[signed_url]'>GET Accounts</a></p>";
     curl_close($ch);
 }        
 ?>

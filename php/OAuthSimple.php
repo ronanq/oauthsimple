@@ -199,6 +199,10 @@ class OAuthSimple {
             $this->_secrets['oauth_secret'] = $this->_secrets['access_secret'];
         if (isset($this->_secrets['access_token_secret']))
             $this->_secrets['oauth_secret'] = $this->_secrets['access_token_secret'];
+        if (isset($this->_secrets['rsa_private_key']))
+            $this->_secrets['private_key'] = $this->_secrets['rsa_private_key'];
+         if (isset($this->_secrets['rsa_public_key']))
+            $this->_secrets['public_key'] = $this->_secrets['rsa_public_key'];
         // Gauntlet
         if (empty($this->_secrets['consumer_key']))
             throw new OAuthSimpleException('Missing required consumer_key in OAuthSimple.signatures');
@@ -395,6 +399,17 @@ class OAuthSimple {
         }
         return join('&',$elements);
     }
+    
+    function _readFile($filePath) {
+       
+       	$fp = fopen($filePath,"r");
+       	
+		$file_contents = fread($fp,8192);
+		
+		fclose($fp);
+		
+        return $file_contents;
+    }
 
     function _generateSignature () {
         $secretKey = '';
@@ -408,20 +423,26 @@ class OAuthSimple {
         	case 'RSA-SHA1':
         	
         		// Fetch the private key cert based on the request
-                $cert = $this->fetchPrivateCert($request);
+                $publickey = openssl_get_publickey($this->_readFile($this->_secrets['private_key']));
                 
                 // Pull the private key ID from the certificate
-                $privatekeyid = opensslGetPrivatekey($cert);
+                $privatekeyid = openssl_get_privatekey($this->_readFile($this->_secrets['private_key']));
                 
                 // Sign using the key
-                $ok = openssl_sign($baseString, $signature, $privatekeyid);
+               // $ok = openssl_sign($baseString, $signature, $privatekeyid);
                 
-                // Release the key resource
-                openssl_free_key($privatekeyid);
-                
+             
                 $this->sbs = $this->_oauthEscape($this->_action).'&'.$this->_oauthEscape($this->_path).'&'.$this->_oauthEscape($this->_normalizedParameters());
-                //error_log('SBS: '.$sigString);
-                return base64_encode(hash_hmac('sha1',$this->sbs,$secretKey,true));
+                error_log('SBS: '.$this->sbs);
+                
+               $ok = openssl_sign($this->sbs, $signature, $privatekeyid);
+               error_log('SIG: '.$signature);
+               
+                  // Release the key resource
+				openssl_free_key($privatekeyid);
+           
+               return base64_encode($signature);
+               //return base64_encode(hash_hmac('sha1',$this->sbs,$secretKey,true));
                 
             case 'PLAINTEXT':
                 return urlencode($secretKey);
