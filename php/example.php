@@ -33,7 +33,7 @@ $output = 'Authorizing...';
 # Public - standard public app method
 # Partner - partner app method
 # Partner_Mac - dev flavour of partner to get around Mac OS X issues with openssl (not for production)                
-define("XRO_APP_TYPE",     "Public");
+define("XRO_APP_TYPE",     "Partner_Mac");
 
                      
 switch (XRO_APP_TYPE) {
@@ -58,6 +58,11 @@ switch (XRO_APP_TYPE) {
         $xro_settings = $xro_partner_defaults;
         break;
     case "Partner_Mac":
+    	$signatures = array( 'consumer_key'     => 'YUP2MEROFLLXVPMSRBJXDHAPXEM6CU',
+              	      	 'shared_secret'    => 'MTFLVIVWEI8ZEX0P7EO54IU414EXPF',
+                	     'rsa_private_key'	=> BASE_PATH . '/certs/php-test-private-rq-privatekey.pem',
+                     	 'rsa_public_key'	=> BASE_PATH . '/certs/php-test-private-rq-publickey.cer');
+       
         $xro_settings = $xro_partner_mac_defaults;
         break;
 }
@@ -105,13 +110,13 @@ if (!isset($_GET['oauth_verifier'])) {
         break;
     case "Partner_Mac":
         	//curl_setopt($ch, CURLOPT_CAINFO,  BASE_PATH .'/certs/ca.crt');
-			curl_setopt($ch, CURLOPT_FAILONERROR, 1); 
+			//curl_setopt($ch, CURLOPT_FAILONERROR, 1); 
 			// Partner app settings
 			//curl_setopt($ch, CURLOPT_SSLKEYTYPE, 'PEM'); 
 			//curl_setopt($ch, CURLOPT_SSLCERTPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/EnTrust-D4-Public.pem'); 
-			//curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/EnTrust-D4-PrivateNoPass.pem'); 
+			curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
+			curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
+			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
         break;
 }
 

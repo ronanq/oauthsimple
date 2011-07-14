@@ -423,7 +423,7 @@ class OAuthSimple {
         	case 'RSA-SHA1':
         	
         		// Fetch the private key cert based on the request
-                $publickey = openssl_get_publickey($this->_readFile($this->_secrets['private_key']));
+                $publickey = openssl_get_publickey($this->_readFile($this->_secrets['public_key']));
                 
                 // Pull the private key ID from the certificate
                 $privatekeyid = openssl_get_privatekey($this->_readFile($this->_secrets['private_key']));
