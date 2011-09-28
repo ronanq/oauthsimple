@@ -55,18 +55,17 @@ switch (XRO_APP_TYPE) {
         $xro_settings = $xro_defaults;
         break;
     case "Partner":
-    	$signatures = array( 'consumer_key'     => 'YUP2MEROFLLXVPMSRBJXDHAPXEM6CU',
-              	      	 'shared_secret'    => 'MTFLVIVWEI8ZEX0P7EO54IU414EXPF',
-                	     'rsa_private_key'	=> BASE_PATH . '/certs/php-test-private-rq-privatekey.pem',
-                     	 'rsa_public_key'	=> BASE_PATH . '/certs/php-test-private-rq-publickey.cer');
-       
+   	 	$signatures = array( 'consumer_key'     => 'MWSAN8S5AAFPMMNBV3DQIEWH4TM9FE',
+              	      	 'shared_secret'    => 's',
+                	     'rsa_private_key'	=> BASE_PATH . '/certs/rq-partner-app-2-privatekey.pem',
+                     	 'rsa_public_key'	=> BASE_PATH . '/certs/rq-partner-app-2-publickey.cer');
         $xro_settings = $xro_partner_defaults;
         break;
     case "Partner_Mac":
-    	$signatures = array( 'consumer_key'     => 'YUP2MEROFLLXVPMSRBJXDHAPXEM6CU',
-              	      	 'shared_secret'    => 'MTFLVIVWEI8ZEX0P7EO54IU414EXPF',
-                	     'rsa_private_key'	=> BASE_PATH . '/certs/php-test-private-rq-privatekey.pem',
-                     	 'rsa_public_key'	=> BASE_PATH . '/certs/php-test-private-rq-publickey.cer');
+    	$signatures = array( 'consumer_key'     => 'MWSAN8S5AAFPMMNBV3DQIEWH4TM9FE',
+              	      	 'shared_secret'    => 's',
+                	     'rsa_private_key'	=> BASE_PATH . '/certs/rq-partner-app-2-privatekey.pem',
+                     	 'rsa_public_key'	=> BASE_PATH . '/certs/rq-partner-app-2-publickey.cer');
        
         $xro_settings = $xro_partner_mac_defaults;
         break;
@@ -89,7 +88,7 @@ if (!isset($_GET['oauth_verifier'])) {
         'path'      => $xro_settings['site'].$xro_consumer_options['request_token_path'],
         'parameters'=> array(
             'scope'         => $xro_settings['xero_url'],
-            'oauth_callback'=> 'http://localhost/oauthsimple_rq/php/example.php',
+            'oauth_callback'=> 'http://sslocalhost.xx:8080/oauthsimple/php/flexitime.php',
             'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
@@ -132,7 +131,7 @@ if (!isset($_GET['oauth_verifier'])) {
 	 
     if(isset($_GET['debug'])){
     //echo BASE_PATH . '/certs/entrust-private.pem' . '<br/>';
-    	$fp = fopen(BASE_PATH . '/certs/clientCert-rq.pem',"r");
+    	$fp = fopen(BASE_PATH . '/certs/entrust-cert.pem',"r");
        	
 		$file_contents = fread($fp,8192);
 		//echo "<br/>" . $file_contents . '<br/>';
@@ -222,17 +221,11 @@ else {
 
 	// ... and grab the resulting string again. 
 	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_VERBOSE, '1');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    //WARNING: this would prevent curl from detecting a 'man in the middle' attack
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
-	curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
-			curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
 	curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
 	$r = curl_exec($ch);
-print_r($r);
+
 	// Voila, we've got a long-term access token.
 	parse_str($r, $returned_items);		   
 	$access_token = $returned_items['oauth_token'];
@@ -255,37 +248,26 @@ print_r($r);
     // This will build a link to an RSS feed of the users calendars.
     $oauthObject->reset();
     $result = $oauthObject->sign(array(
-        'path'      => $xro_settings['xero_url'].'/Accounts',
+        'path'      => $xro_settings['site'].'/2.0/Accounts',
         //'parameters'=> array('Where' => 'Type%3d%3d%22BANK%22'),
         'parameters'=> array(
-        'oauth_token' => $access_token,
 			'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
-print_r($_POST);
+
     // Instead of going to the list, I will just print the link along with the 
     // access token and secret, so we can play with it in the sandbox:
     // http://googlecodesamples.com/oauth_playground/
     //
-   
-    
     $ch = curl_init();
-	curl_setopt($ch, CURLOPT_VERBOSE, '1');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    //WARNING: this would prevent curl from detecting a 'man in the middle' attack
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
-	curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
-			curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
+    echo "REQ URL" . $result['signed_url'];
     $output = "<p>Access Token: $access_token<BR>
                   Token Secret: $access_token_secret</p>
                <p><a href='$result[signed_url]'>GET Accounts</a></p>";
-    echo "firing<br/>";
-    $r = curl_exec($ch);
-    print_r($r);
+               echo 'CURL RESULT: ' . print_r($r) . '<br/>';
     curl_close($ch);
-    
 }        
 ?>
 <HTML>

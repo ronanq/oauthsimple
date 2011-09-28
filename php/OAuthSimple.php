@@ -337,7 +337,7 @@ class OAuthSimple {
             return '';
         if (is_array($string))
             throw new OAuthSimpleException('Array passed to _oauthEscape');
-        $string = urlencode($string);
+        $string = rawurlencode($string);
         $string = str_replace('+','%20',$string);
         $string = str_replace('!','%21',$string);
         $string = str_replace('*','%2A',$string);
@@ -422,16 +422,14 @@ class OAuthSimple {
         {
         	case 'RSA-SHA1':
         	
-        		// Fetch the private key cert based on the request
+        		// Fetch the public key  
                 $publickey = openssl_get_publickey($this->_readFile($this->_secrets['public_key']));
                 
-                // Pull the private key ID from the certificate
+                // Fetch the private key 
                 $privatekeyid = openssl_get_privatekey($this->_readFile($this->_secrets['private_key']));
                 
                 // Sign using the key
-               // $ok = openssl_sign($baseString, $signature, $privatekeyid);
                 
-             
                 $this->sbs = $this->_oauthEscape($this->_action).'&'.$this->_oauthEscape($this->_path).'&'.$this->_oauthEscape($this->_normalizedParameters());
                 error_log('SBS: '.$this->sbs);
                 
