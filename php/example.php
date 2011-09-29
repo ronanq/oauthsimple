@@ -36,7 +36,7 @@ $output = 'Authorizing...';
 define("XRO_APP_TYPE",     "Partner_Mac");
 
 # set your callback url or set 'oob' if none required
-define("OAUTH_CALLBACK",     'http://localhost:8080/oauthsimple-demo/php/example.php');
+define("OAUTH_CALLBACK",     'http://localhost/oauthsimple_rq/php/example.php');
 
 
 # Set some standard curl options....
@@ -87,15 +87,15 @@ switch (XRO_APP_TYPE) {
           
 // bypass if we have an active session
 session_start();
-if ($_SESSION&&$_REQUEST['start']!=1) {
+if ($_SESSION&&$_REQUEST['start']==1) {
 
 	$signatures['oauth_token'] = $_SESSION['access_token'];
     $signatures['oauth_secret'] = $_SESSION['access_token_secret'];
     $signatures['oauth_session_handle'] = $_SESSION['oauth_session_handle'];
     //////////////////////////////////////////////////////////////////////
     
+     if (!empty($_REQUEST['endpoint'])){
     // Example Xero API Access:
-    // This will build a link to an RSS feed of the users calendars.
     $oauthObject->reset();
     $result = $oauthObject->sign(array(
         'path'      => $xro_settings['xero_url'].'/'.$_REQUEST['endpoint'].'/',
@@ -116,6 +116,32 @@ if ($_SESSION&&$_REQUEST['start']!=1) {
 		}
 	
 	echo 'CURL RESULT: <textarea cols="160" rows="40">' . $r . '</textarea><br/>';
+	}
+	
+	// Example Xero API AccessToken swap:
+	if (!empty($_REQUEST['action'])){
+		$oauthObject->reset();
+    	$result = $oauthObject->sign(array(
+        	'path'      => $xro_settings['site'].$xro_consumer_options['access_token_path'],
+        	'parameters'=> array(
+            'scope'         => $xro_settings['xero_url'],
+            'oauth_session_handle'	=> $signatures['oauth_session_handle'],
+            'oauth_token'	=> $signatures['oauth_token'],
+            'oauth_signature_method' => $xro_settings['signature_method']),
+        'signatures'=> $signatures));
+	$ch = curl_init();
+	curl_setopt_array($ch, $options);
+    curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
+	$r = curl_exec($ch);
+	parse_str($r, $returned_items);		   
+	$_SESSION['access_token'] = $returned_items['oauth_token'];
+	$_SESSION['access_token_secret']   = $returned_items['oauth_token_secret'];
+	$_SESSION['oauth_session_handle']   = $returned_items['oauth_session_handle'];
+	if($returned_items['oauth_token']){
+		echo "Refresh successful - new token: " . $returned_items['oauth_token'] . "<br/>";
+		}
+	curl_close($ch);
+	}
 	
 }else{
 
@@ -292,12 +318,13 @@ else {
 ?>
 <HTML>
 <BODY>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Accounts">Accounts</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Organisation">Organisation</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Invoices">Invoices</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Contacts">Contacts</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Currencies">Currencies</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=TrackingCategories">TrackingCategories</a><br/>
-<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Journals">Journals</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Accounts&start=1">Accounts</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Organisation&start=1">Organisation</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Invoices&start=1">Invoices</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Contacts&start=1">Contacts</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Currencies&start=1">Currencies</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=TrackingCategories&start=1">TrackingCategories</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?endpoint=Journals&start=1">Journals</a><br/>
+<a href="<?php echo $_SERVER['PHP_SELF'] . SID ?>?action=ChangeToken&start=1">Token Refresh</a><br/>
 </BODY>
 </HTML>
