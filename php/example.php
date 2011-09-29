@@ -35,6 +35,15 @@ $output = 'Authorizing...';
 # Partner_Mac - dev flavour of partner to get around Mac OS X issues with openssl (not for production)                
 define("XRO_APP_TYPE",     "Partner_Mac");
 
+# set your callback url or set 'oob' if none required
+define("OAUTH_CALLBACK",     'http://localhost:8080/oauthsimple-demo/php/example.php');
+
+
+# Set some standard curl options....
+		$options[CURLOPT_VERBOSE] = 1;
+    	$options[CURLOPT_RETURNTRANSFER] = 1;
+    	$options[CURLOPT_SSL_VERIFYHOST] = 0;
+    	$options[CURLOPT_SSL_VERIFYPEER] = 0;
                      
 switch (XRO_APP_TYPE) {
     case "Private":
@@ -62,6 +71,11 @@ switch (XRO_APP_TYPE) {
         $xro_settings = $xro_partner_defaults;
         break;
     case "Partner_Mac":
+    	$options[CURLOPT_SSLCERT] = BASE_PATH . '/certs/entrust-cert.pem';
+    	$options[CURLOPT_SSLKEYPASSWD] = '1234';
+    	$options[CURLOPT_SSLKEY] = BASE_PATH . '/certs/entrust-private.pem';
+    	
+    	
     	$signatures = array( 'consumer_key'     => 'MWSAN8S5AAFPMMNBV3DQIEWH4TM9FE',
               	      	 'shared_secret'    => 's',
                 	     'rsa_private_key'	=> BASE_PATH . '/certs/rq-partner-app-2-privatekey.pem',
@@ -71,6 +85,39 @@ switch (XRO_APP_TYPE) {
         break;
 }
           
+// bypass if we have an active session
+session_start();
+if ($_SESSION&&$_REQUEST['start']!=1) {
+
+	$signatures['oauth_token'] = $_SESSION['access_token'];
+    $signatures['oauth_secret'] = $_SESSION['access_token_secret'];
+    $signatures['oauth_session_handle'] = $_SESSION['oauth_session_handle'];
+    //////////////////////////////////////////////////////////////////////
+    
+    // Example Xero API Access:
+    // This will build a link to an RSS feed of the users calendars.
+    $oauthObject->reset();
+    $result = $oauthObject->sign(array(
+        'path'      => $xro_settings['xero_url'].'/'.$_REQUEST['endpoint'].'/',
+        //'parameters'=> array('Where' => 'Type%3d%3d%22BANK%22'),
+        'parameters'=> array(
+			'oauth_signature_method' => $xro_settings['signature_method']),
+        'signatures'=> $signatures));
+	$ch = curl_init();
+	curl_setopt_array($ch, $options);
+    curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
+	$r = curl_exec($ch);
+	curl_close($ch);
+	
+	parse_str($r, $returned_items);		   
+	$oauth_problem = $returned_items['oauth_problem'];
+		if($oauth_problem){
+			session_destroy();
+		}
+	
+	echo 'CURL RESULT: <textarea cols="160" rows="40">' . $r . '</textarea><br/>';
+	
+}else{
 
 // In step 3, a verifier will be submitted.  If it's not there, we must be
 // just starting out. Let's do step 1 then.
@@ -88,7 +135,7 @@ if (!isset($_GET['oauth_verifier'])) {
         'path'      => $xro_settings['site'].$xro_consumer_options['request_token_path'],
         'parameters'=> array(
             'scope'         => $xro_settings['xero_url'],
-            'oauth_callback'=> 'http://sslocalhost.xx:8080/oauthsimple/php/flexitime.php',
+            'oauth_callback'	=> OAUTH_CALLBACK,
             'oauth_signature_method' => $xro_settings['signature_method']),
         'signatures'=> $signatures));
 
@@ -96,49 +143,11 @@ if (!isset($_GET['oauth_verifier'])) {
     // needed parameters, and the web page that will handle our request.  I now
     // "load" that web page into a string variable.
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_VERBOSE, '1');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    //WARNING: this would prevent curl from detecting a 'man in the middle' attack
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
-	
-	switch (XRO_APP_TYPE) {
-    case "Private":
-       
-        break;
-    case "Public":
-       
-        break;
-    case "Partner":
-       		curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
-			curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
-        break;
-    case "Partner_Mac":
-        	//curl_setopt($ch, CURLOPT_CAINFO,  BASE_PATH .'/certs/ca.crt');
-			//curl_setopt($ch, CURLOPT_FAILONERROR, 1); 
-			// Partner app settings
-			//curl_setopt($ch, CURLOPT_SSLKEYTYPE, 'PEM'); 
-			//curl_setopt($ch, CURLOPT_SSLCERTPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLCERT, BASE_PATH . '/certs/entrust-cert.pem'); 
-			curl_setopt ($ch, CURLOPT_SSLKEYPASSWD, '1234'); 
-			curl_setopt ($ch, CURLOPT_SSLKEY, BASE_PATH . '/certs/entrust-private.pem'); 
-        break;
-}
+    
+	curl_setopt_array($ch, $options);
 
-	
-	
-	 
     if(isset($_GET['debug'])){
-    //echo BASE_PATH . '/certs/entrust-private.pem' . '<br/>';
-    	$fp = fopen(BASE_PATH . '/certs/entrust-cert.pem',"r");
-       	
-		$file_contents = fread($fp,8192);
-		//echo "<br/>" . $file_contents . '<br/>';
-		fclose($fp);
-    echo 'CURLOPT_SSLKEY: ' . CURLOPT_SSLKEY . '<br/>';
-    echo 'CURLOPT_SSLCERT: ' . CURLOPT_SSLCERT . '<br/>';
-    echo 'signed_url: ' . $result['signed_url'] . '<br/>';
+    	echo 'signed_url: ' . $result['signed_url'] . '<br/>';
     }
     
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
@@ -194,7 +203,7 @@ if (!isset($_GET['oauth_verifier'])) {
 }
 else {
     ///////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-    // Step 3: Exchange the Authorized Request Token for a Long-Term
+    // Step 3: Exchange the Authorized Request Token for an
     //         Access Token.
     //
     // We just returned from the user authorization process on Google's site.
@@ -221,15 +230,15 @@ else {
 
 	// ... and grab the resulting string again. 
 	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
+	curl_setopt_array($ch, $options);
 	curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
 	$r = curl_exec($ch);
 
-	// Voila, we've got a long-term access token.
+	// Voila, we've got an access token.
 	parse_str($r, $returned_items);		   
 	$access_token = $returned_items['oauth_token'];
 	$access_token_secret = $returned_items['oauth_token_secret'];
+	$oauth_session_handle = $returned_items['oauth_session_handle'];
     }else{
     $access_token = $signatures['oauth_token'];
 	$access_token_secret = $signatures['oauth_secret'];
@@ -242,13 +251,14 @@ else {
     // access token you hopefully stored somewhere permanently.
     $signatures['oauth_token'] = $access_token;
     $signatures['oauth_secret'] = $access_token_secret;
+    $signatures['oauth_session_handle'] = $oauth_session_handle;
     //////////////////////////////////////////////////////////////////////
     
     // Example Xero API Access:
     // This will build a link to an RSS feed of the users calendars.
     $oauthObject->reset();
     $result = $oauthObject->sign(array(
-        'path'      => $xro_settings['site'].'/2.0/Accounts',
+        'path'      => $xro_settings['xero_url'].'/Organisation/',
         //'parameters'=> array('Where' => 'Type%3d%3d%22BANK%22'),
         'parameters'=> array(
 			'oauth_signature_method' => $xro_settings['signature_method']),
@@ -259,19 +269,35 @@ else {
     // http://googlecodesamples.com/oauth_playground/
     //
     $ch = curl_init();
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0); 
+	curl_setopt_array($ch, $options);
     curl_setopt($ch, CURLOPT_URL, $result['signed_url']);
+	$r = curl_exec($ch);
     echo "REQ URL" . $result['signed_url'];
-    $output = "<p>Access Token: $access_token<BR>
-                  Token Secret: $access_token_secret</p>
-               <p><a href='$result[signed_url]'>GET Accounts</a></p>";
-               echo 'CURL RESULT: ' . print_r($r) . '<br/>';
+    // start a session to show how we could use this in an app
+    session_start();
+    $_SESSION['access_token'] = $access_token;
+	$_SESSION['access_token_secret']   = $access_token_secret;
+	$_SESSION['oauth_session_handle']   = $oauth_session_handle;
+	$_SESSION['time']     = time();
+
+    $output = "<p>Access Token: ". $_SESSION['access_token'] ."<BR>
+                  Token Secret: ". $_SESSION['access_token_secret'] . "<BR>
+                  Session Handle: ". $_SESSION['oauth_session_handle'] ."</p>
+               <p><a href=''>GET Accounts</a></p>";
+               echo 'CURL RESULT: <textarea cols="160" rows="40">' . $r . '</textarea><br/>';
     curl_close($ch);
-}        
+}     
+
+}
 ?>
 <HTML>
 <BODY>
-<?php echo $output;?>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Accounts">Accounts</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Organisation">Organisation</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Invoices">Invoices</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Contacts">Contacts</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Currencies">Currencies</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=TrackingCategories">TrackingCategories</a><br/>
+<a href="<?php echo $PHP_SELF . SID ?>?endpoint=Journals">Journals</a><br/>
 </BODY>
 </HTML>

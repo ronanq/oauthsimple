@@ -4,3 +4,19 @@ php/certs/EnTrust-D4-Public.pem
 php/certs/EnTrust-D4-Private.pem
 
 php/certs/EnTrust-D4-PrivateNoPass.pem
+
+php/certs/entrust-cert.pem
+
+.gitignore
+
+php/certs/rq-partner-app-2-publickey.cer
+
+php/certs/rq-partner-app-2-privatekey.pem
+
+php/certs/php-test-private-rq-privatekey.pem
+
+php/certs/php-test-private-rq-publickey.cer
+
+php/certs/entrust-private.pem
+
+.gitignore
